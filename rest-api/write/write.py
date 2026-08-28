@@ -1,30 +1,48 @@
-import requests
-import time
-import json
-from types import SimpleNamespace
+async function writeOpcItems(baseUrl, items) {
+    const url = new URL("/write", baseUrl);
 
-#To fix error "ImportError: No module named requests"
-#   1. Start Command Prompt (cmd.exe)
-#   2. Enter "py -3 -m pip install requests"
+    for (const item of items) {
+        url.searchParams.append("item", item.id);
+        url.searchParams.append("value", String(item.value));
+    }
 
-#To fix error "ImportError: No module named json"
-#   1. Start Command Prompt (cmd.exe)
-#   2. Enter "py -3 -m pip install json"
+    const response = await fetch(url, {
+        method: "GET"
+    });
 
-value = 0;
+    const result = await response.json();
 
-while(True):
-    url = "http://192.168.1.101:80/write?item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Memory&value=(value)"
-    url = url.replace("(value)", str(value))
-    response = requests.get(url)
-    
-    #parse response string(JSON) into a JSON object
-    json_object = json.loads(response.text, object_hook=lambda d: SimpleNamespace(**d))
-    data = json_object.data
+    if (!response.ok) {
+        throw new Error(
+            `Write failed: ${response.status} ${response.statusText}`
+        );
+    }
 
-    for item in data:
-        print(f"{item.ID} | Value: {item.Properties.Value} StatusCode: {item.Properties.StatusCode} Timestamp: {item.Properties.SourceTimestamp}")
+    if (result.data?.ErrorCode) {
+        throw new Error(
+            `OPC Expert error ${result.data.ErrorCode}: ${result.data.Message}`
+        );
+    }
 
-    #toggle the value between 0 and 1
-    value = 1 - value
-    time.sleep(2)
+    return result;
+}
+
+async function main() {
+    const items = [
+        {
+            id: "StressTest.Test01",
+            value: 2
+        }
+    ];
+
+    const result = await writeOpcItems(
+        "http://localhost:80",
+        items
+    );
+
+    console.log(JSON.stringify(result, null, 2));
+}
+
+main().catch(error => {
+    console.error(error.message);
+});
