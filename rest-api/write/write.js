@@ -30,7 +30,7 @@ async function writeOpcItems(baseUrl, items) {
 async function main() {
     const items = [
         {
-            id: "StressTest.Test01",
+            id: "ICONICS.SimulatorOPCDA.2->Numeric.Memory",
             value: 2
         }
     ];
