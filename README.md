@@ -56,13 +56,9 @@ Within an operation folder, examples should use descriptive filenames:
 ```text
 rest-api/read/
 ├── README.md
-├── read-one-item.curl.txt
-├── read-one-item.cs
-├── read-one-item.js
-├── read-one-item.py
-├── read-multiple-items.cs
-├── read-multiple-items.js
-└── read-multiple-items.py
+├── read.cs
+├── read.js
+├── read.py
 ```
 
 ## Prerequisites
