@@ -24,7 +24,11 @@ namespace OPC_Expert_Rest_API
         {
             try
             {
+                // For one item:
                 string url = $"http://192.168.1.101:80/read?item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Ramp";
+
+                // For multiple items:
+                // string url = $"http://192.168.1.101:80/read?item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Ramp&item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Memory";
 
                 //instantiate a DataContractJsonSerializer to deserialize the JSON string into an object
                 DataContractJsonSerializer deserializer = new DataContractJsonSerializer(typeof(JsonObject));
