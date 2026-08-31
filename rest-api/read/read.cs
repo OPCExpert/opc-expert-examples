@@ -9,145 +9,102 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Text.Json;
-using System.Threading.Tasks;
+using System.IO;
+using System.Net;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+using System.Text;
+using System.Threading;
 
-internal class Program
+namespace OPC_Expert_Rest_API
 {
-    // OPC Expert Web Server endpoint.
-    private const string BaseUrl = "http://localhost";
-
-    // Replace these with browse paths or node IDs from your OPC server.
-    // Add more entries to read multiple OPC items.
-    private static readonly string[] ItemIds =
+    internal class Program
     {
-        "ICONICS.SimulatorOPCDA.2->Numeric.Memory"
-    };
-
-    // Optional Read API parameters.
-    private const bool ValuesOnly = false;
-    private const uint UpdateRateMilliseconds = 1000;
-    private const string PathSeparator = "->";
-    private const int RequestTimeoutSeconds = 65;
-
-    private static readonly HttpClient HttpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(RequestTimeoutSeconds)
-    };
-
-    private static async Task<JsonDocument> ReadOpcItemsAsync(
-        IEnumerable<string> itemIds,
-        string baseUrl = BaseUrl,
-        bool valuesOnly = ValuesOnly,
-        uint rate = UpdateRateMilliseconds,
-        string separator = PathSeparator)
-    {
-        string[] items = itemIds
-            .Where(item => !string.IsNullOrWhiteSpace(item))
-            .ToArray();
-
-        if (items.Length == 0)
+        static void Main(string[] args)
         {
-            throw new ArgumentException(
-                "Provide at least one OPC item node ID or browse path.",
-                nameof(itemIds));
-        }
-
-        var queryParameters = new List<string>();
-
-        // Repeating the item parameter reads multiple OPC items.
-        foreach (string item in items)
-        {
-            queryParameters.Add(
-                $"item={Uri.EscapeDataString(item)}");
-        }
-
-        queryParameters.Add(
-            $"values_only={valuesOnly.ToString().ToLowerInvariant()}");
-
-        queryParameters.Add(
-            $"rate={rate}");
-
-        queryParameters.Add(
-            $"separator={Uri.EscapeDataString(separator)}");
-
-        string requestUrl =
-            $"{baseUrl.TrimEnd('/')}/read?{string.Join("&", queryParameters)}";
-
-        using HttpResponseMessage response =
-            await HttpClient.GetAsync(requestUrl);
-
-        string responseBody =
-            await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new HttpRequestException(
-                $"OPC Expert Read API request failed " +
-                $"({(int)response.StatusCode} {response.ReasonPhrase}): " +
-                responseBody);
-        }
-
-        JsonDocument result;
-
-        try
-        {
-            result = JsonDocument.Parse(responseBody);
-        }
-        catch (JsonException exception)
-        {
-            throw new JsonException(
-                "OPC Expert returned a non-JSON response: " +
-                responseBody,
-                exception);
-        }
-
-        if (result.RootElement.TryGetProperty("meta", out JsonElement metadata) &&
-            metadata.ValueKind == JsonValueKind.Object &&
-            metadata.TryGetProperty(
-                "ErrorMessage",
-                out JsonElement errorElement) &&
-            errorElement.ValueKind == JsonValueKind.String)
-        {
-            string? errorMessage = errorElement.GetString();
-
-            if (!string.IsNullOrWhiteSpace(errorMessage))
+            try
             {
-                result.Dispose();
+                string url = $"http://192.168.1.101:80/read?item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Ramp";
 
-                throw new InvalidOperationException(
-                    $"OPC Expert returned an error: {errorMessage}");
+                //instantiate a DataContractJsonSerializer to deserialize the JSON string into an object
+                DataContractJsonSerializer deserializer = new DataContractJsonSerializer(typeof(JsonObject));
+
+                do
+                {
+                    //send http "GET" request to OPC Expert Rest API Server
+                    string json = Read(url);
+
+                    using (var stream = new MemoryStream(Encoding.Unicode.GetBytes(json)))
+                    {
+                        //deserialize the JSON string into a JSON object
+                        JsonObject response = (JsonObject)deserializer.ReadObject(stream);
+
+                        foreach (Item item in response.data)
+                        {
+                            Console.WriteLine($"ID: {item.ID} | Value: {item.Value} | Quality: {item.Quality} | Timestamp: {item.SourceTimestamp}");
+                        }
+                    }
+
+                    //loop every 1 second
+                    Thread.Sleep(1000);
+                }
+                while (true);
+            }
+            catch (Exception error)
+            {
+                Console.WriteLine(error);
+            }
+
+            Console.Read();
+        }
+        static string Read(string url)
+        {
+            //create web request object
+            var request = WebRequest.Create(url);
+
+            //set request method as "GET"
+            request.Method = "GET";
+
+            //set content response type as JSON
+            request.ContentType = "application/json";
+
+            //send request and get response from resver
+            using (WebResponse response = request.GetResponse())
+            {
+                //read response stream from web response
+                using (StreamReader reader = new StreamReader(response.GetResponseStream()))
+                {
+                    return reader.ReadToEnd();
+                }
             }
         }
 
-        return result;
-    }
+        #region Json Objects Classes
 
-    private static async Task Main()
-    {
-        try
+        [DataContract]
+        class JsonObject
         {
-            using JsonDocument result =
-                await ReadOpcItemsAsync(ItemIds);
-
-            string formattedJson = JsonSerializer.Serialize(
-                result.RootElement,
-                new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
-
-            Console.WriteLine(formattedJson);
+            [DataMember]
+            public List<Item> data { get; set; }
         }
-        catch (Exception exception)
+
+        [DataContract]
+        class Item
         {
-            Console.Error.WriteLine(
-                "Could not complete the OPC Expert Read API request: " +
-                exception.Message);
+            [DataMember]
+            public string ID { get; set; }
 
-            Environment.ExitCode = 1;
+            [DataMember]
+            public string Value { get; set; }
+
+            [DataMember]
+            public string Quality { get; set; }
+
+            [DataMember]
+            public string SourceTimestamp { get; set; }
         }
+
+        #endregion
     }
 }
+
