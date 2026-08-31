@@ -15,33 +15,35 @@ namespace OPC_Expert_Rest_API
         {
             try
             {
-                //instantiate a DataContractJsonSerializer to deserialize the JSON string into an object
-                DataContractJsonSerializer deserializer = new DataContractJsonSerializer(typeof(JsonObject));
-                var value = 0;
+                string url =
+                    "http://192.168.1.101:80/write?item=" +
+                    "opcda://desktop-kn9ludo/" +
+                    "ICONICS.SimulatorOPCDA.2/i:Numeric.Memory&value=1";
+
+                var deserializer =
+                    new DataContractJsonSerializer(typeof(JsonObject));
 
                 do
                 {
-                    //write out new api string
-                    string url = $"http://192.168.1.101:80/write?item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Ramp&value=(value)";
-                    url = url.Replace("(value)", value.ToString());
+                    string json = Read(url);
 
-                    //send http "GET" request to OPC Expert Rest API Server
-                    string json = Write(url);
-
-                    using (var stream = new MemoryStream(Encoding.Unicode.GetBytes(json)))
+                    using (var stream = new MemoryStream(
+                        Encoding.UTF8.GetBytes(json)))
                     {
-                        //deserialize the JSON string into a JSON object
-                        JsonObject response = (JsonObject)deserializer.ReadObject(stream);
+                        var response =
+                            (JsonObject)deserializer.ReadObject(stream);
 
                         foreach (Item item in response.data)
                         {
-                            Console.WriteLine($"ID: {item.ID} | Value: {item.Value} | Quality: {item.Quality} | Timestamp: {item.SourceTimestamp}");
+                            Console.WriteLine(
+                                $"ID: {item.ID} | " +
+                                $"Value: {item.Properties.Value} | " +
+                                $"Quality: {item.Properties.StatusCodeDescription} | " +
+                                $"Timestamp: {item.Properties.SourceTimestamp}");
                         }
                     }
 
-                    //toggle the value between 0 and 1
-                    value = 1 - value;
-                    Thread.Sleep(2000);
+                    Thread.Sleep(1000);
                 }
                 while (true);
             }
@@ -52,24 +54,20 @@ namespace OPC_Expert_Rest_API
 
             Console.Read();
         }
-        static string Write(string url)
+
+        static string Read(string url)
         {
             var request = WebRequest.Create(url);
-
             request.Method = "GET";
-
             request.ContentType = "application/json";
 
             using (WebResponse response = request.GetResponse())
+            using (var reader =
+                new StreamReader(response.GetResponseStream()))
             {
-                using (StreamReader reader = new StreamReader(response.GetResponseStream()))
-                {
-                    return reader.ReadToEnd();
-                }
+                return reader.ReadToEnd();
             }
         }
-
-        #region Json Objects Classes
 
         [DataContract]
         class JsonObject
@@ -85,15 +83,20 @@ namespace OPC_Expert_Rest_API
             public string ID { get; set; }
 
             [DataMember]
-            public string Value { get; set; }
+            public Properties Properties { get; set; }
+        }
+
+        [DataContract]
+        class Properties
+        {
+            [DataMember]
+            public double Value { get; set; }
 
             [DataMember]
-            public string Quality { get; set; }
+            public string StatusCodeDescription { get; set; }
 
             [DataMember]
             public string SourceTimestamp { get; set; }
         }
-
-        #endregion
     }
 }
