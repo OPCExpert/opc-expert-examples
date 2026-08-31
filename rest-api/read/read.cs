@@ -24,32 +24,34 @@ namespace OPC_Expert_Rest_API
         {
             try
             {
-                // For one item:
-                string url = $"http://192.168.1.101:80/read?item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Ramp";
+                string url =
+                    "http://192.168.1.101:80/read?item=" +
+                    "opcda://desktop-kn9ludo/" +
+                    "ICONICS.SimulatorOPCDA.2/i:Numeric.Ramp";
 
-                // For multiple items:
-                // string url = $"http://192.168.1.101:80/read?item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Ramp&item=opcda://desktop-kn9ludo/ICONICS.SimulatorOPCDA.2/i:Numeric.Memory";
-
-                //instantiate a DataContractJsonSerializer to deserialize the JSON string into an object
-                DataContractJsonSerializer deserializer = new DataContractJsonSerializer(typeof(JsonObject));
+                var deserializer =
+                    new DataContractJsonSerializer(typeof(JsonObject));
 
                 do
                 {
-                    //send http "GET" request to OPC Expert Rest API Server
                     string json = Read(url);
 
-                    using (var stream = new MemoryStream(Encoding.Unicode.GetBytes(json)))
+                    using (var stream = new MemoryStream(
+                        Encoding.UTF8.GetBytes(json)))
                     {
-                        //deserialize the JSON string into a JSON object
-                        JsonObject response = (JsonObject)deserializer.ReadObject(stream);
+                        var response =
+                            (JsonObject)deserializer.ReadObject(stream);
 
                         foreach (Item item in response.data)
                         {
-                            Console.WriteLine($"ID: {item.ID} | Value: {item.Value} | Quality: {item.Quality} | Timestamp: {item.SourceTimestamp}");
+                            Console.WriteLine(
+                                $"ID: {item.ID} | " +
+                                $"Value: {item.Properties.Value} | " +
+                                $"Quality: {item.Properties.StatusCodeDescription} | " +
+                                $"Timestamp: {item.Properties.SourceTimestamp}");
                         }
                     }
 
-                    //loop every 1 second
                     Thread.Sleep(1000);
                 }
                 while (true);
@@ -61,29 +63,20 @@ namespace OPC_Expert_Rest_API
 
             Console.Read();
         }
+
         static string Read(string url)
         {
-            //create web request object
             var request = WebRequest.Create(url);
-
-            //set request method as "GET"
             request.Method = "GET";
-
-            //set content response type as JSON
             request.ContentType = "application/json";
 
-            //send request and get response from resver
             using (WebResponse response = request.GetResponse())
+            using (var reader =
+                new StreamReader(response.GetResponseStream()))
             {
-                //read response stream from web response
-                using (StreamReader reader = new StreamReader(response.GetResponseStream()))
-                {
-                    return reader.ReadToEnd();
-                }
+                return reader.ReadToEnd();
             }
         }
-
-        #region Json Objects Classes
 
         [DataContract]
         class JsonObject
@@ -99,16 +92,20 @@ namespace OPC_Expert_Rest_API
             public string ID { get; set; }
 
             [DataMember]
-            public string Value { get; set; }
+            public Properties Properties { get; set; }
+        }
+
+        [DataContract]
+        class Properties
+        {
+            [DataMember]
+            public double Value { get; set; }
 
             [DataMember]
-            public string Quality { get; set; }
+            public string StatusCodeDescription { get; set; }
 
             [DataMember]
             public string SourceTimestamp { get; set; }
         }
-
-        #endregion
     }
 }
-
